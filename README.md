@@ -1,73 +1,77 @@
-# React + TypeScript + Vite
+# Control Graph
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A **PLC-style execution graph editor** in the browser: drag blocks from a palette, wire typed ports, group logic in resizable **frames** (with nesting), and author **inline C++** on configurable **CODE** blocks. Built with **React**, **TypeScript**, **Vite**, and [**React Flow**](https://reactflow.dev/) (`@xyflow/react`).
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Block library** — Logic (AND, OR, NOT), timers (TON), counters (CTU), math/compare, PID, I/O (INPUT), **CODE** (custom ports + C++ body), **FRAME** (grouping + BOOL event input).
+- **Typed connections** — Wires validate on `BOOL`, `INT`, `REAL`, `WORD`, `TIME`; reconnect supported; one wire per input.
+- **Frames** — Drop blocks inside a frame; **nested frames** allowed; parent picked by innermost hit; cycles prevented when reparenting.
+- **CODE block** — `inputsSpec` / `outputsSpec` as JSON port lists; C++ body in settings; live JSON hints when editing.
+- **Settings** — Double-click blocks with settings (CODE, PID, INPUT); anchored panel next to the node.
+- **Sheet persistence** — **Copy sheet JSON** / **Import sheet…** exports or replaces the **entire canvas** (all nodes, edges, positions, `parentId`, block `data`). Format: `control-graph-sheet` v1 (see below).
 
-## React Compiler
+## Quick start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Open the URL Vite prints (usually `http://localhost:5173`).
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm run build   # typecheck + production bundle
+npm run lint    # ESLint
+npm run preview # serve dist locally
 ```
+
+## Sheet JSON format
+
+Used by **Copy sheet JSON** and **Import sheet**. Top-level object:
+
+```json
+{
+  "format": "control-graph-sheet",
+  "version": 1,
+  "nodes": [],
+  "edges": []
+}
+```
+
+- **`nodes`** — `id`, `type` (`plcBlock` | `plcFrame`), `position`, `data`, optional `parentId`, `extent`, `style`. Block-specific fields (e.g. CODE `settings`) live under `data`.
+- **`edges`** — `id`, `source`, `target`, optional `sourceHandle` / `targetHandle`, styling fields as in React Flow.
+
+Legacy import also accepts `{ "nodes": [], "edges": [] }` without `format` / `version`. Edges whose endpoints are missing after import are dropped.
+
+## Project layout
+
+| Path | Role |
+|------|------|
+| `src/components/FlowEditor.tsx` | Canvas, React Flow wiring, drop/drag reparent, sheet copy/import |
+| `src/components/PLCBlockNode.tsx` | Block chrome, handles, hover flyout |
+| `src/components/PLCFrameNode.tsx` | Frame resizer + event handle |
+| `src/components/BlockPalette.tsx` | Draggable palette |
+| `src/components/BlockSettingsModal.tsx` | Node settings UI |
+| `src/data/blockDefinitions.tsx` | Block metadata (ports, categories, settings fields) |
+| `src/utils/connectionValidation.ts` | Typed connection rules |
+| `src/utils/flowSheetJson.ts` | Serialize / parse full sheet |
+| `src/utils/codeBlockPorts.ts` | CODE port JSON parse + live status |
+| `src/utils/frameHitTest.ts` | Frame hit-testing + reattach helpers |
+
+## Stack
+
+- React 19, TypeScript, Vite 8  
+- `@xyflow/react` 12  
+- Zustand (optional store scaffold under `src/store/`)
+
+## Contributing
+
+This repo is **private**. Push with your usual GitHub auth (HTTPS token or SSH). Example:
+
+```bash
+git add -A && git commit -m "your message"
+git push origin master
+```
+
+Use `git push --force origin master` only when you intentionally rewrite remote history.
