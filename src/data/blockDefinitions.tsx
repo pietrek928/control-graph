@@ -136,6 +136,19 @@ export const BLOCK_DEFINITIONS: BlockDefinition[] = [
     outputs: [{ id: 'value', label: 'OUT', type: 'REAL', hint: 'Value · REAL' }],
   },
   {
+    type: 'OUTPUT',
+    label: 'OUT',
+    category: 'I/O',
+    description: 'External / tag output sink',
+    symbolHint: 'OUTPUT — mapped process write',
+    settingsFields: [
+      { key: 'tag', label: 'Tag / address', type: 'text', default: 'QW0' },
+      { key: 'note', label: 'Note', type: 'text', default: '' },
+    ],
+    inputs: [{ id: 'value', label: 'IN', type: 'REAL', hint: 'Value · REAL' }],
+    outputs: [],
+  },
+  {
     type: 'CODE',
     label: 'CODE',
     category: 'Advanced',

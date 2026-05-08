@@ -95,7 +95,7 @@ function CodeBlockHoverFlyout({
 }
 
 function PLCBlockNodeInner(props: NodeProps<Node<PlcNodeData, 'plcBlock'>>) {
-  const { data } = props
+  const { data, dragging } = props
   const def = getBlockDefinition(data.blockType)
   const title = data.label ?? def?.label ?? data.blockType
   const [hover, setHover] = useState(false)
@@ -130,7 +130,7 @@ function PLCBlockNodeInner(props: NodeProps<Node<PlcNodeData, 'plcBlock'>>) {
           <BlockPreview blockType={data.blockType} variant="node" />
         </div>
 
-        {hover && def.settingsFields?.length ? (
+        {hover && !dragging && def.settingsFields?.length ? (
           data.blockType === 'CODE' ? (
             <CodeBlockHoverFlyout
               symbolHint={symbolOnlyHint}

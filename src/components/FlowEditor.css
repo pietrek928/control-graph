@@ -10,6 +10,67 @@
   --xy-background-color: transparent;
 }
 
+.flow-wrap:focus {
+  outline: none;
+}
+
+.flow-unselect-box {
+  position: fixed;
+  z-index: 30;
+  border: 1px dashed rgba(248, 113, 113, 0.95);
+  background: rgba(127, 29, 29, 0.18);
+  pointer-events: none;
+}
+
+.flow-select-box {
+  position: fixed;
+  z-index: 30;
+  border: 1px dashed rgba(56, 189, 248, 0.95);
+  background: rgba(14, 165, 233, 0.16);
+  pointer-events: none;
+}
+
+.flow-selection-debug {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 40;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(2, 6, 23, 0.9);
+  color: #cbd5e1;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 11px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+.flow-wrap .react-flow__node.selected .plc-node__graphic {
+  box-shadow:
+    0 0 0 2px rgba(56, 189, 248, 0.95),
+    0 0 0 6px rgba(56, 189, 248, 0.22),
+    0 8px 22px rgba(0, 0, 0, 0.55);
+}
+
+.flow-wrap .react-flow__node.selected .plc-frame {
+  border-color: rgba(56, 189, 248, 0.95);
+  box-shadow:
+    0 0 0 1px rgba(56, 189, 248, 0.65) inset,
+    0 0 0 6px rgba(56, 189, 248, 0.16);
+}
+
+.flow-wrap .react-flow__node.selected .plc-frame__title {
+  color: #bae6fd;
+}
+
+.flow-wrap .react-flow__node.node-intersection-invalid .plc-node__graphic {
+  box-shadow:
+    0 0 0 2px rgba(239, 68, 68, 0.9),
+    0 0 0 6px rgba(239, 68, 68, 0.22),
+    0 10px 24px rgba(127, 29, 29, 0.45);
+}
+
 .flow-controls {
   border-radius: 8px !important;
   overflow: hidden;
@@ -162,6 +223,68 @@
 .flow-status__tip {
   font-size: 12px;
   color: rgba(148, 163, 184, 0.85);
+}
+
+.flow-shortcuts {
+  position: relative;
+  pointer-events: auto;
+}
+
+.flow-shortcuts__btn {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  color: #cbd5e1;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: help;
+}
+
+.flow-shortcuts__btn:hover {
+  background: rgba(30, 41, 59, 0.96);
+  color: #f1f5f9;
+}
+
+.flow-shortcuts__tooltip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 8px);
+  display: none;
+  min-width: 250px;
+  max-width: min(360px, 90vw);
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+  z-index: 20;
+}
+
+.flow-shortcuts:hover .flow-shortcuts__tooltip,
+.flow-shortcuts:focus-within .flow-shortcuts__tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flow-shortcuts__item {
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.flow-shortcuts kbd {
+  display: inline-block;
+  min-width: 18px;
+  padding: 2px 5px;
+  margin: 0 1px;
+  border-radius: 4px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.85);
+  color: #e2e8f0;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  line-height: 1.2;
 }
 
 .flow-wrap .react-flow__connection-path {

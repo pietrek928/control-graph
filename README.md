@@ -26,6 +26,42 @@ npm run lint    # ESLint
 npm run preview # serve dist locally
 ```
 
+## Playwright event runner
+
+Replay arbitrary input events from CLI to validate interaction bugs.
+
+```bash
+# Keep dev server running in another terminal
+npm run dev
+
+# Run sample Shift-box smoke sequence
+npm run pw:events -- --events-file scripts/events/shift-selection-smoke.json
+
+# Additional ready scenarios
+npm run pw:events -- --events-file scripts/events/frame-not-auto-selected.json
+npm run pw:events -- --events-file scripts/events/additive-two-boxes.json
+```
+
+Pass inline JSON when testing custom paths:
+
+```bash
+npm run pw:events -- --events '[
+  {"type":"focus","selector":".flow-wrap"},
+  {"type":"keydown","key":"Shift"},
+  {"type":"down","x":220,"y":180,"button":"left"},
+  {"type":"move","x":680,"y":520,"steps":24},
+  {"type":"up","button":"left"},
+  {"type":"keyup","key":"Shift"},
+  {"type":"state","label":"after-box"}
+]'
+```
+
+Useful options:
+- `--url http://127.0.0.1:5173`
+- `--browser chromium|firefox|webkit`
+- `--headed` (show browser window)
+- `--screenshot tmp/result.png`
+
 ## Sheet JSON format
 
 Used by **Copy sheet JSON** and **Import sheet**. Top-level object:

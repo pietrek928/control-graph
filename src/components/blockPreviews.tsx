@@ -240,6 +240,19 @@ export function PreviewINPUT() {
   )
 }
 
+export function PreviewOUTPUT() {
+  return (
+    <svg viewBox="0 0 80 56" style={svgBase} aria-hidden>
+      <rect width="80" height="56" rx="8" fill="#1f2937" stroke="#94a3b8" strokeWidth="2" />
+      <text x="36" y="33" fill="#e2e8f0" fontSize="14" fontWeight="700">
+        OUT
+      </text>
+      <polygon points="16,28 24,23 24,33" fill="#f97316" />
+      <path d="M24 28 h22 M36 22 v12" stroke="#f97316" strokeWidth="3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const previews: Record<string, FC> = {
   AND: PreviewAND,
   OR: PreviewOR,
@@ -251,6 +264,7 @@ const previews: Record<string, FC> = {
   MOVE: PreviewMOVE,
   PID: PreviewPID,
   INPUT: PreviewINPUT,
+  OUTPUT: PreviewOUTPUT,
   CODE: PreviewCODE,
   FRAME: PreviewFRAME,
 }

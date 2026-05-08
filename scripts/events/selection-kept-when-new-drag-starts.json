@@ -1,0 +1,13 @@
+[
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "click", "selector": ".flow-wrap", "offsetX": 8, "offsetY": 8 },
+  { "type": "boxNode", "nodeId": "n-add", "mode": "add", "padding": 16 },
+  { "type": "keydown", "key": "Shift" },
+  { "type": "down", "selector": ".flow-wrap", "offsetX": 18, "offsetY": 18, "button": "left" },
+  { "type": "state", "label": "while-second-drag-active" },
+  { "type": "move", "selector": ".flow-wrap", "offsetX": 120, "offsetY": 120, "steps": 8 },
+  { "type": "up", "button": "left" },
+  { "type": "keyup", "key": "Shift" },
+  { "type": "state", "label": "after-second-drag" }
+]
+

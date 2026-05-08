@@ -1,0 +1,11 @@
+[
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "click", "selector": ".flow-wrap", "offsetX": 8, "offsetY": 8 },
+  { "type": "keydown", "key": "Shift" },
+  { "type": "down", "selector": ".react-flow__node[data-id=\"n-add\"]", "button": "left" },
+  { "type": "move", "selector": ".react-flow__pane", "offsetX": 940, "offsetY": 640, "steps": 20 },
+  { "type": "up", "button": "left" },
+  { "type": "keyup", "key": "Shift" },
+  { "type": "state", "label": "shift-drag-over-node-start" }
+]
+

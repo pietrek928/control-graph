@@ -1,0 +1,7 @@
+[
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "click", "selector": ".flow-wrap", "offsetX": 8, "offsetY": 8 },
+  { "type": "boxNode", "nodeId": "n-not", "mode": "add", "padding": 14 },
+  { "type": "state", "label": "select-node-in-frame-no-frame" }
+]
+

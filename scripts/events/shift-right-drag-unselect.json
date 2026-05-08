@@ -1,0 +1,9 @@
+[
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "click", "selector": ".flow-wrap", "offsetX": 8, "offsetY": 8 },
+  { "type": "boxNode", "nodeId": "n-add", "mode": "add", "padding": 16 },
+  { "type": "boxNode", "nodeId": "n-gt", "mode": "add", "padding": 16 },
+  { "type": "boxNode", "nodeId": "n-add", "mode": "remove", "padding": 16 },
+  { "type": "state", "label": "after-right-drag-unselect" }
+]
+
