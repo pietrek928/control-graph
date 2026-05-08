@@ -1,0 +1,174 @@
+.flow-wrap {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  background: var(--canvas-bg, #020617);
+}
+
+.flow-wrap .react-flow {
+  --xy-background-color: transparent;
+}
+
+.flow-controls {
+  border-radius: 8px !important;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+}
+
+.flow-controls button {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2) !important;
+  fill: #e2e8f0 !important;
+}
+
+.flow-controls button:hover {
+  background: rgba(30, 41, 59, 0.98) !important;
+}
+
+.flow-minimap {
+  border-radius: 8px !important;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+}
+
+.flow-status {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.flow-status__io {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.flow-status__io-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  background: rgba(14, 165, 233, 0.14);
+  color: #bae6fd;
+}
+
+.flow-status__io-btn:hover {
+  background: rgba(14, 165, 233, 0.26);
+  color: #f0f9ff;
+}
+
+.flow-sheet-import {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 52px;
+  z-index: 25;
+  max-height: min(42vh, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.97);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
+  pointer-events: auto;
+}
+
+.flow-sheet-import__title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.flow-sheet-import__textarea {
+  flex: 1;
+  min-height: 120px;
+  max-height: 220px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(2, 6, 23, 0.75);
+  color: #f1f5f9;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 11px;
+  line-height: 1.4;
+  resize: vertical;
+}
+
+.flow-sheet-import__textarea:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+.flow-sheet-import__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.flow-sheet-import__btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: transparent;
+  color: #cbd5e1;
+}
+
+.flow-sheet-import__btn:hover {
+  background: rgba(148, 163, 184, 0.1);
+}
+
+.flow-sheet-import__btn.primary {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.35), rgba(99, 102, 241, 0.3));
+  color: #f0f9ff;
+}
+
+.flow-sheet-import__btn.primary:hover {
+  filter: brightness(1.08);
+}
+
+.flow-status__msg {
+  pointer-events: none;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #fecaca;
+  background: rgba(127, 29, 29, 0.92);
+  border: 1px solid rgba(248, 113, 113, 0.45);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.flow-status__tip {
+  font-size: 12px;
+  color: rgba(148, 163, 184, 0.85);
+}
+
+.flow-wrap .react-flow__connection-path {
+  stroke: #38bdf8;
+  stroke-width: 2;
+}
+
+.flow-wrap .react-flow__edge-path {
+  stroke: #38bdf8;
+}

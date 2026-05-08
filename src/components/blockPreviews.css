@@ -1,0 +1,12 @@
+/* Node canvas: SVG fills the graphic box (parent sets width + aspect-ratio) */
+.block-preview--fill {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.block-preview--fill svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}

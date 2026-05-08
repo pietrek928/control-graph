@@ -1,0 +1,261 @@
+.plc-node {
+  font-family: var(--font-ui, system-ui, sans-serif);
+}
+
+/* Single graphic + handles overlaid — no side gutters */
+.plc-node--compact {
+  position: relative;
+  display: inline-block;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  line-height: 0;
+}
+
+.plc-node__body {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.plc-node__settings-flyout {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 8px);
+  transform: translateX(-50%);
+  z-index: 100;
+  min-width: 200px;
+  max-width: 280px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.plc-node__settings-flyout-hint {
+  margin: 0 0 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.plc-node__settings-flyout-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-family: ui-monospace, monospace;
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.plc-node__settings-flyout--code {
+  min-width: 260px;
+  max-width: min(340px, 92vw);
+  max-height: min(55vh, 320px);
+  overflow-y: auto;
+  line-height: 1.4;
+}
+
+.plc-code-flyout__block {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.plc-code-flyout__block:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.plc-code-flyout__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+}
+
+.plc-code-flyout__title {
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.plc-code-flyout__muted {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+  color: #cbd5e1;
+  text-align: right;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+.plc-code-flyout__sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.plc-code-flyout__kbd {
+  font-family: ui-monospace, monospace;
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(2, 6, 23, 0.65);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.plc-code-flyout__pill {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.plc-code-flyout__pill--ok {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
+
+.plc-code-flyout__pill--warn {
+  background: rgba(234, 179, 8, 0.2);
+  color: #fde047;
+}
+
+.plc-code-flyout__pill--err {
+  background: rgba(248, 113, 113, 0.18);
+  color: #fca5a5;
+}
+
+.plc-code-flyout__detail {
+  margin: 0 0 6px;
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.35;
+}
+
+.plc-node__code-cpp-pre {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 9px;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 100px;
+  overflow: auto;
+  background: rgba(2, 6, 23, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #e2e8f0;
+}
+
+/* Fixed aspect matches viewBox 80×56 so the SVG fills this box edge-to-edge */
+.plc-node__graphic {
+  display: block;
+  width: 112px;
+  aspect-ratio: 80 / 56;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+.plc-node__handles {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-evenly;
+  pointer-events: none;
+}
+
+.plc-node__handles--in {
+  left: 0;
+  width: 0;
+  align-items: flex-start;
+}
+
+.plc-node__handles--out {
+  right: 0;
+  width: 0;
+  align-items: flex-end;
+}
+
+.plc-port-slot {
+  flex: 1 1 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  pointer-events: auto;
+  cursor: crosshair;
+}
+
+.plc-node--unknown {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: #451a1a;
+  border: 1px solid #991b1b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.plc-node__unknown-mark {
+  font-size: 22px;
+  font-weight: 800;
+  color: #fecaca;
+}
+
+.plc-handle {
+  width: 10px !important;
+  height: 10px !important;
+  border: 2px solid rgba(15, 23, 42, 0.85) !important;
+  background: #f1f5f9 !important;
+}
+
+.plc-handle:hover {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.45);
+}
+
+.plc-handle--in {
+  left: 0 !important;
+  transform: translate(-50%, -50%) !important;
+  top: 50% !important;
+}
+
+.plc-handle--out {
+  right: 0 !important;
+  left: auto !important;
+  transform: translate(50%, -50%) !important;
+  top: 50% !important;
+}
