@@ -197,6 +197,41 @@ export function PreviewFRAME() {
   )
 }
 
+export function PreviewSHEET({ label = 'SHEET' }: { label?: string }) {
+  const text = label.trim() || 'SHEET'
+  const display = text.length > 14 ? `${text.slice(0, 13)}…` : text
+  return (
+    <svg viewBox="0 0 80 56" style={svgBase} aria-hidden>
+      <rect width="80" height="56" rx="8" fill="#0f172a" stroke="#38bdf8" strokeWidth="2" />
+      <rect x="10" y="10" width="60" height="36" rx="6" fill="#1e293b" stroke="#334155" strokeWidth="1.5" />
+      <text
+        x="40"
+        y="22"
+        textAnchor="middle"
+        fill="#94a3b8"
+        fontSize="7"
+        fontWeight="700"
+        letterSpacing="1"
+      >
+        SHEET
+      </text>
+      <text
+        x="40"
+        y="36"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#7dd3fc"
+        fontSize="10"
+        fontWeight="800"
+        textLength={display.length > 6 ? 56 : undefined}
+        lengthAdjust="spacingAndGlyphs"
+      >
+        {display}
+      </text>
+    </svg>
+  )
+}
+
 export function PreviewCODE() {
   return (
     <svg viewBox="0 0 80 56" style={svgBase} aria-hidden>
@@ -266,19 +301,28 @@ const previews: Record<string, FC> = {
   INPUT: PreviewINPUT,
   OUTPUT: PreviewOUTPUT,
   CODE: PreviewCODE,
+  SHEET: PreviewSHEET,
   FRAME: PreviewFRAME,
 }
 
 export function BlockPreview({
   blockType,
   variant = 'palette',
+  label,
 }: {
   blockType: string
   /** `node`: stretch artwork to fill the PLC block body */
   variant?: 'palette' | 'node'
+  /** Used by SHEET blocks to render the target sheet name */
+  label?: string
 }) {
-  const Cmp = previews[blockType] ?? PreviewAND
-  const inner = <Cmp />
+  const inner =
+    blockType === 'SHEET' ? (
+      <PreviewSHEET label={label} />
+    ) : (() => {
+      const Cmp = previews[blockType] ?? PreviewAND
+      return <Cmp />
+    })()
 
   if (variant !== 'node') {
     return inner

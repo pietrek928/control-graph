@@ -1,7 +1,6 @@
 import {
   Background,
   Controls,
-  MarkerType,
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
@@ -19,6 +18,16 @@ import '@xyflow/react/dist/style.css'
 import type { DragEvent, MouseEvent as ReactMouseEvent } from 'react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getBlockDefinition } from '../data/blockDefinitions'
+import {
+  DEFAULT_ALARMS_SHEET_ID,
+  DEFAULT_MAIN_SHEET_ID,
+  defaultAlarmsSheetEdges,
+  defaultAlarmsSheetNodes,
+  defaultFlowEdgeArrow,
+  defaultFlowEdges,
+  defaultFlowEdgeStyle,
+  defaultFlowNodes,
+} from '../data/defaultFlowGraph'
 import { useCanvasShortcuts } from '../hooks/useCanvasShortcuts'
 import { useNodeReparenting } from '../hooks/useNodeReparenting'
 import { useSelectionController } from '../hooks/useSelectionController'
@@ -26,6 +35,18 @@ import { nodeTypes } from '../nodeTypes'
 import type { FlowNodeData } from '../utils/connectionValidation'
 import { pickParentFrameAtPoint } from '../utils/frameHitTest'
 import { defaultSettingsForBlock, type SettingsRecord } from '../utils/blockSettings'
+import {
+  blockPairProximityPenalty,
+  backwardDirectionPenalty,
+  connectionLengthPenalties,
+  fallbackNodeSize,
+  layoutObjectiveScore,
+  lowXDistancePenalty,
+  preferredNeighborDistance,
+  readNumericStyleSize,
+  segmentIntersectsRect,
+  segmentsIntersect,
+} from '../utils/layoutMetrics'
 import { BlockSettingsModal } from './BlockSettingsModal'
 import type { PlcNodeData } from './PLCBlockNode'
 import type { FrameNodeData } from '../types/frame'
@@ -33,7 +54,11 @@ import {
   inputAlreadyConnected,
   isValidTypedConnection,
 } from '../utils/connectionValidation'
-import { parseFlowSheetJson, serializeFlowSheet } from '../utils/flowSheetJson'
+import {
+  parseFlowProjectJson,
+  serializeFlowProject,
+  type FlowProjectSheet,
+} from '../utils/flowSheetJson'
 import { DND_MIME } from './BlockPalette'
 import './FlowEditor.css'
 
@@ -43,275 +68,131 @@ function makeNodeId() {
   return `n-${crypto.randomUUID().slice(0, 8)}`
 }
 
-const initialNodes: Node<FlowNodeData>[] = [
-  {
-    id: 'f-main',
-    type: 'plcFrame',
-    position: { x: 60, y: 80 },
-    style: { width: 860, height: 470 },
-    data: { label: 'MAIN SEQUENCE' },
-  },
-  {
-    id: 'f-nested',
-    type: 'plcFrame',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 500, y: 180 },
-    style: { width: 300, height: 220 },
-    data: { label: 'SAFETY LOGIC' },
-  },
-  {
-    id: 'n-input-sp',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 40, y: 70 },
-    data: {
-      blockType: 'INPUT',
-      label: 'SP',
-      settings: { tag: 'AI_SP', note: 'Setpoint (REAL)' },
-    },
-  },
-  {
-    id: 'n-input-pv',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 40, y: 170 },
-    data: {
-      blockType: 'INPUT',
-      label: 'PV',
-      settings: { tag: 'AI_PV', note: 'Process variable (REAL)' },
-    },
-  },
-  {
-    id: 'n-pid',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 210, y: 120 },
-    data: {
-      blockType: 'PID',
-      label: 'PID',
-      settings: { kp: 1.2, ki: 0.08, kd: 0.02, directAction: true },
-    },
-  },
-  {
-    id: 'n-add',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 210, y: 300 },
-    data: { blockType: 'ADD', label: 'ADD' },
-  },
-  {
-    id: 'n-ctu',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 390, y: 260 },
-    data: { blockType: 'CTU', label: 'CTU' },
-  },
-  {
-    id: 'n-gt',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 390, y: 360 },
-    data: { blockType: 'GT', label: 'GT' },
-  },
-  {
-    id: 'n-code',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 560, y: 80 },
-    data: {
-      blockType: 'CODE',
-      label: 'CODE',
-      settings: {
-        inputsSpec:
-          '[{"id":"in0","label":"IN0","type":"BOOL"},{"id":"in1","label":"IN1","type":"BOOL"}]',
-        outputsSpec: '[{"id":"out0","label":"OUT0","type":"BOOL"}]',
-        code: '// Example custom logic\nbool out0 = in0 && !in1;\n',
-      },
-    },
-  },
-  {
-    id: 'n-and',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 560, y: 180 },
-    data: { blockType: 'AND', label: 'AND' },
-  },
-  {
-    id: 'n-ton',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 560, y: 280 },
-    data: { blockType: 'TON', label: 'TON' },
-  },
-  {
-    id: 'n-output-cv',
-    type: 'plcBlock',
-    parentId: 'f-main',
-    extent: 'parent',
-    position: { x: 730, y: 120 },
-    data: {
-      blockType: 'OUTPUT',
-      label: 'CV_OUT',
-      settings: { tag: 'QW0', note: 'Control output writeback (REAL)' },
-    },
-  },
-  {
-    id: 'n-not',
-    type: 'plcBlock',
-    parentId: 'f-nested',
-    extent: 'parent',
-    position: { x: 36, y: 46 },
-    data: { blockType: 'NOT', label: 'NOT' },
-  },
-]
-
-const edgeArrow = {
-  type: MarkerType.ArrowClosed,
-  width: 20,
-  height: 20,
-  color: '#38bdf8',
-} as const
-
-const edgeStyle = { stroke: '#38bdf8', strokeWidth: 2 }
-
 type UndoSnapshot = {
   nodes: Node<FlowNodeData>[]
   edges: Edge[]
   selectedIds: string[]
 }
 
-const initialEdges: Edge[] = [
-  {
-    id: 'e-sp-pid',
-    source: 'n-input-sp',
-    sourceHandle: 'out:value',
-    target: 'n-pid',
-    targetHandle: 'in:sp',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-pv-pid',
-    source: 'n-input-pv',
-    sourceHandle: 'out:value',
-    target: 'n-pid',
-    targetHandle: 'in:pv',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-pid-output',
-    source: 'n-pid',
-    sourceHandle: 'out:out',
-    target: 'n-output-cv',
-    targetHandle: 'in:value',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-add-ctu',
-    source: 'n-add',
-    sourceHandle: 'out:out',
-    target: 'n-ctu',
-    targetHandle: 'in:pv',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-add-gt',
-    source: 'n-add',
-    sourceHandle: 'out:out',
-    target: 'n-gt',
-    targetHandle: 'in:a',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-ctu-gt',
-    source: 'n-ctu',
-    sourceHandle: 'out:cv',
-    target: 'n-gt',
-    targetHandle: 'in:b',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-gt-and',
-    source: 'n-gt',
-    sourceHandle: 'out:out',
-    target: 'n-and',
-    targetHandle: 'in:in2',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-not-code',
-    source: 'n-not',
-    sourceHandle: 'out:out',
-    target: 'n-code',
-    targetHandle: 'in:in0',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-code-and',
-    source: 'n-code',
-    sourceHandle: 'out:out0',
-    target: 'n-and',
-    targetHandle: 'in:in1',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-and-ton',
-    source: 'n-and',
-    sourceHandle: 'out:out',
-    target: 'n-ton',
-    targetHandle: 'in:in',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-  {
-    id: 'e-ton-frame',
-    source: 'n-ton',
-    sourceHandle: 'out:q',
-    target: 'f-main',
-    targetHandle: 'in:event',
-    animated: true,
-    style: edgeStyle,
-    markerEnd: edgeArrow,
-  },
-]
+const DEFAULT_SHEET_ID = DEFAULT_MAIN_SHEET_ID
+
+function makeSheetId() {
+  return `sheet-${crypto.randomUUID().slice(0, 8)}`
+}
+
+function parsePortSpecArray(raw: unknown): Array<{ id: string; label: string; type: string }> {
+  if (typeof raw !== 'string') return []
+  const trimmed = raw.trim()
+  if (!trimmed) return []
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (!Array.isArray(parsed)) return []
+    return parsed
+      .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+      .map((item, idx) => {
+        const idRaw = typeof item.id === 'string' ? item.id : `p${idx}`
+        const id = idRaw.replace(/[^a-zA-Z0-9_]/g, '') || `p${idx}`
+        const label = typeof item.label === 'string' && item.label.trim() ? item.label : id
+        const type = typeof item.type === 'string' && item.type.trim() ? item.type.toUpperCase() : 'BOOL'
+        return { id, label, type }
+      })
+  } catch {
+    return []
+  }
+}
+
+function inferSheetInterfacePorts(nodes: Node<FlowNodeData>[]) {
+  const inputs: Array<{ id: string; label: string; type: string }> = []
+  const outputs: Array<{ id: string; label: string; type: string }> = []
+  for (const node of nodes) {
+    if (node.type !== 'plcBlock') continue
+    const data = node.data as PlcNodeData
+    if (data.blockType === 'INPUT') {
+      const id = String(data.settings?.tag ?? data.label ?? node.id)
+      inputs.push({ id, label: data.label ?? id, type: 'REAL' })
+    } else if (data.blockType === 'OUTPUT') {
+      const id = String(data.settings?.tag ?? data.label ?? node.id)
+      outputs.push({ id, label: data.label ?? id, type: 'REAL' })
+    }
+  }
+  if (!inputs.length) inputs.push({ id: 'in0', label: 'IN0', type: 'BOOL' })
+  if (!outputs.length) outputs.push({ id: 'out0', label: 'OUT0', type: 'BOOL' })
+  return {
+    inputsJson: JSON.stringify(inputs, null, 2),
+    outputsJson: JSON.stringify(outputs, null, 2),
+  }
+}
+
+function createDefaultProjectSheets(): FlowProjectSheet[] {
+  return [
+    {
+      id: DEFAULT_MAIN_SHEET_ID,
+      name: 'Main',
+      nodes: defaultFlowNodes,
+      edges: defaultFlowEdges,
+    },
+    {
+      id: DEFAULT_ALARMS_SHEET_ID,
+      name: 'Alarms',
+      nodes: defaultAlarmsSheetNodes,
+      edges: defaultAlarmsSheetEdges,
+    },
+  ]
+}
+
+function createEmptyProjectSheet(name: string): FlowProjectSheet {
+  const id = makeSheetId()
+  const inputNodeId = `n-sheet-input-${id.slice(-4)}`
+  const outputNodeId = `n-sheet-output-${id.slice(-4)}`
+  return {
+    id,
+    name,
+    nodes: [
+      {
+        id: inputNodeId,
+        type: 'plcBlock',
+        position: { x: 140, y: 180 },
+        data: {
+          blockType: 'INPUT',
+          label: 'IN',
+          settings: defaultSettingsForBlock('INPUT'),
+        },
+      },
+      {
+        id: outputNodeId,
+        type: 'plcBlock',
+        position: { x: 480, y: 180 },
+        data: {
+          blockType: 'OUTPUT',
+          label: 'OUT',
+          settings: defaultSettingsForBlock('OUTPUT'),
+        },
+      },
+    ],
+    edges: [],
+  }
+}
 
 function FlowCanvas() {
-  const [nodes, setNodes] = useState<Node<FlowNodeData>[]>(initialNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
+  const [projectSheets, setProjectSheets] = useState<FlowProjectSheet[]>(() =>
+    createDefaultProjectSheets(),
+  )
+  const [activeSheetId, setActiveSheetId] = useState<string>(DEFAULT_SHEET_ID)
+  const activeSheet = useMemo(
+    () => projectSheets.find((s) => s.id === activeSheetId) ?? projectSheets[0],
+    [projectSheets, activeSheetId],
+  )
+  const [nodes, setNodes] = useState<Node<FlowNodeData>[]>(activeSheet?.nodes ?? defaultFlowNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(activeSheet?.edges ?? defaultFlowEdges)
   const [status, setStatus] = useState<string | null>(null)
   const [settingsModalNodeId, setSettingsModalNodeId] = useState<string | null>(null)
   const [sheetImportOpen, setSheetImportOpen] = useState(false)
   const [sheetImportText, setSheetImportText] = useState('')
+  const [newSheetName, setNewSheetName] = useState('')
   const [showLayoutDebug, setShowLayoutDebug] = useState(false)
-  const [layoutCompactness, setLayoutCompactness] = useState(1)
+  const [layoutRunning, setLayoutRunning] = useState(false)
+  const [layoutElapsedMs, setLayoutElapsedMs] = useState(0)
+  const layoutStartedAtRef = useRef<number>(0)
   const statusClearRef = useRef<number>(0)
   const reconnectingEdgeIdRef = useRef<string | null>(null)
   const wrapRef = useRef<HTMLDivElement | null>(null)
@@ -320,12 +201,26 @@ function FlowCanvas() {
   const lastSnapshotRef = useRef<UndoSnapshot | null>(null)
   const lastSnapshotKeyRef = useRef<string | null>(null)
   const isApplyingUndoRef = useRef(false)
+  const isSwitchingSheetRef = useRef(false)
 
   const showStatus = useCallback((msg: string) => {
     setStatus(msg)
     window.clearTimeout(statusClearRef.current)
     statusClearRef.current = window.setTimeout(() => setStatus(null), 3200)
   }, [])
+
+  useEffect(() => {
+    if (!layoutRunning) {
+      setLayoutElapsedMs(0)
+      return
+    }
+    layoutStartedAtRef.current = performance.now()
+    setLayoutElapsedMs(0)
+    const id = window.setInterval(() => {
+      setLayoutElapsedMs(performance.now() - layoutStartedAtRef.current)
+    }, 100)
+    return () => window.clearInterval(id)
+  }, [layoutRunning])
 
   const { screenToFlowPosition, getNodes, getEdges, getInternalNode, fitView } = useReactFlow()
 
@@ -352,6 +247,77 @@ function FlowCanvas() {
     getInternalNode,
     screenToFlowPosition,
   })
+
+  useEffect(() => {
+    if (!activeSheet) return
+    isSwitchingSheetRef.current = true
+    setNodes(activeSheet.nodes)
+    setEdges(activeSheet.edges)
+    setSelectedIds(new Set())
+    queueMicrotask(() => {
+      isSwitchingSheetRef.current = false
+    })
+  }, [activeSheet?.id, setNodes, setEdges, setSelectedIds])
+
+  useEffect(() => {
+    if (!activeSheet || isSwitchingSheetRef.current) return
+    setProjectSheets((prev) =>
+      prev.map((sheet) =>
+        sheet.id === activeSheet.id
+          ? {
+              ...sheet,
+              nodes,
+              edges,
+            }
+          : sheet,
+      ),
+    )
+  }, [nodes, edges, activeSheet?.id])
+
+  useEffect(() => {
+    setProjectSheets((prev) => {
+      const byId = new Map(prev.map((sheet) => [sheet.id, sheet] as const))
+      let changed = false
+      const next = prev.map((sheet) => {
+        let sheetChanged = false
+        const nextNodes = sheet.nodes.map((node) => {
+          if (node.type !== 'plcBlock') return node
+          const data = node.data as PlcNodeData
+          if (data.blockType !== 'SHEET') return node
+          const targetSheetId = String(data.settings?.sheetId ?? '').trim()
+          if (!targetSheetId || targetSheetId === sheet.id) return node
+          const targetSheet = byId.get(targetSheetId)
+          if (!targetSheet) return node
+          const inferred = inferSheetInterfacePorts(targetSheet.nodes)
+          const currentInputs = parsePortSpecArray(data.settings?.inputsSpec)
+          const currentOutputs = parsePortSpecArray(data.settings?.outputsSpec)
+          const inferredInputs = parsePortSpecArray(inferred.inputsJson)
+          const inferredOutputs = parsePortSpecArray(inferred.outputsJson)
+          const inputsSame = JSON.stringify(currentInputs) === JSON.stringify(inferredInputs)
+          const outputsSame = JSON.stringify(currentOutputs) === JSON.stringify(inferredOutputs)
+          const labelMatchesSheet = data.label === targetSheet.name
+          if (inputsSame && outputsSame && labelMatchesSheet) return node
+          sheetChanged = true
+          changed = true
+          return {
+            ...node,
+            data: {
+              ...data,
+              label: targetSheet.name,
+              settings: {
+                ...data.settings,
+                inputsSpec: inferred.inputsJson,
+                outputsSpec: inferred.outputsJson,
+              },
+            },
+          } as Node<FlowNodeData>
+        })
+        if (!sheetChanged) return sheet
+        return { ...sheet, nodes: nextNodes }
+      })
+      return changed ? next : prev
+    })
+  }, [projectSheets])
 
   const renderedNodesWithOverlapState = useMemo(() => {
     const byId = new Map(nodes.map((n) => [n.id, n] as const))
@@ -409,6 +375,211 @@ function FlowCanvas() {
       return nextClass === baseClass ? n : { ...n, className: nextClass }
     })
   }, [nodes, renderedNodes, getInternalNode])
+
+  const liveLayoutMetrics = useMemo(() => {
+    if (!showLayoutDebug || selectedIds.size < 2) return null
+    const selected = nodes.filter((n) => selectedIds.has(n.id))
+    if (selected.length < 2) return null
+    const selectedSet = new Set(selected.map((n) => n.id))
+    const selectedTypeById = new Map(selected.map((n) => [n.id, n.type] as const))
+    const selectedById = new Map(selected.map((n) => [n.id, n] as const))
+    const geometry = new Map<string, { cx: number; cy: number; left: number; top: number; right: number; bottom: number }>()
+
+    for (const n of selected) {
+      const internal = getInternalNode(n.id)
+      const abs = internal?.internals.positionAbsolute ?? n.position
+      const styleWidth = readNumericStyleSize(n.style?.width as string | number | undefined)
+      const styleHeight = readNumericStyleSize(n.style?.height as string | number | undefined)
+      const fallback = fallbackNodeSize(n.type)
+      const width = Math.max(fallback.width, internal?.measured.width ?? 0, internal?.width ?? 0, styleWidth ?? 0)
+      const height = Math.max(
+        fallback.height,
+        internal?.measured.height ?? 0,
+        internal?.height ?? 0,
+        styleHeight ?? 0,
+      )
+      geometry.set(n.id, {
+        cx: abs.x + width / 2,
+        cy: abs.y + height / 2,
+        left: abs.x,
+        top: abs.y,
+        right: abs.x + width,
+        bottom: abs.y + height,
+      })
+    }
+
+    let minLeft = Number.POSITIVE_INFINITY
+    let minTop = Number.POSITIVE_INFINITY
+    let maxRight = Number.NEGATIVE_INFINITY
+    let maxBottom = Number.NEGATIVE_INFINITY
+    for (const g of geometry.values()) {
+      minLeft = Math.min(minLeft, g.left)
+      minTop = Math.min(minTop, g.top)
+      maxRight = Math.max(maxRight, g.right)
+      maxBottom = Math.max(maxBottom, g.bottom)
+    }
+    const area =
+      Number.isFinite(minLeft) && Number.isFinite(minTop)
+        ? Math.max(1, maxRight - minLeft) * Math.max(1, maxBottom - minTop)
+        : 0
+
+    const edgeSegs: Array<{ source: string; target: string; s: { x: number; y: number }; t: { x: number; y: number } }> = []
+    let wireLength = 0
+    let farPenalty = 0
+    let shortPenalty = 0
+    let lowXPenalty = 0
+    let backwardPenalty = 0
+    const blockRects = new Map<
+      string,
+      { left: number; top: number; right: number; bottom: number; parentId: string | null }
+    >()
+    for (const e of edges) {
+      if (!selectedSet.has(e.source) || !selectedSet.has(e.target)) continue
+      if (
+        selectedTypeById.get(e.source) !== 'plcBlock' ||
+        selectedTypeById.get(e.target) !== 'plcBlock'
+      ) {
+        continue
+      }
+      const source = geometry.get(e.source)
+      const target = geometry.get(e.target)
+      if (!source || !target) continue
+      const dist = Math.hypot(source.cx - target.cx, source.cy - target.cy)
+      wireLength += dist
+      const srcW = source.right - source.left
+      const tgtW = target.right - target.left
+      const preferred = preferredNeighborDistance(srcW, tgtW, 48)
+      const penalties = connectionLengthPenalties(dist, preferred)
+      farPenalty += penalties.farPenalty
+      shortPenalty += penalties.shortPenalty
+      lowXPenalty += lowXDistancePenalty(Math.abs(source.cx - target.cx), preferred)
+      backwardPenalty += backwardDirectionPenalty(target.cx - source.cx, preferred)
+      edgeSegs.push({
+        source: e.source,
+        target: e.target,
+        s: { x: source.cx, y: source.cy },
+        t: { x: target.cx, y: target.cy },
+      })
+    }
+    for (const n of selected) {
+      if (n.type !== 'plcBlock') continue
+      const g = geometry.get(n.id)
+      if (!g) continue
+      blockRects.set(n.id, {
+        left: g.left,
+        top: g.top,
+        right: g.right,
+        bottom: g.bottom,
+        parentId: n.parentId ?? null,
+      })
+    }
+
+    let crossings = 0
+    for (let i = 0; i < edgeSegs.length; i += 1) {
+      for (let j = i + 1; j < edgeSegs.length; j += 1) {
+        const a = edgeSegs[i]
+        const b = edgeSegs[j]
+        if (a.source === b.source || a.source === b.target || a.target === b.source || a.target === b.target) {
+          continue
+        }
+        if (segmentsIntersect(a.s, a.t, b.s, b.t)) crossings += 1
+      }
+    }
+    let lineBlockIntersectionCount = 0
+    for (const seg of edgeSegs) {
+      for (const [id, rect] of blockRects.entries()) {
+        if (id === seg.source || id === seg.target) continue
+        if (segmentIntersectsRect(seg.s, seg.t, rect)) lineBlockIntersectionCount += 1
+      }
+    }
+
+    let overlapCount = 0
+    let overlapArea = 0
+    let blockProximityPenalty = 0
+    const rectList = [...blockRects.values()]
+    for (let i = 0; i < rectList.length; i += 1) {
+      for (let j = i + 1; j < rectList.length; j += 1) {
+        const a = rectList[i]
+        const b = rectList[j]
+        const overlapW = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+        const overlapH = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+        if (overlapW > 0 && overlapH > 0) {
+          overlapCount += 1
+          overlapArea += overlapW * overlapH
+        } else if (a.parentId === b.parentId) {
+          const gapX = Math.max(0, Math.max(a.left - b.right, b.left - a.right))
+          const gapY = Math.max(0, Math.max(a.top - b.bottom, b.top - a.bottom))
+          blockProximityPenalty += blockPairProximityPenalty(gapX, gapY)
+        }
+      }
+    }
+
+    const selectedFrames = selected
+      .filter((n) => n.type === 'plcFrame')
+      .map((n) => {
+        const g = geometry.get(n.id)
+        if (!g) return null
+        return { id: n.id, left: g.left, top: g.top, right: g.right, bottom: g.bottom }
+      })
+      .filter(
+        (f): f is { id: string; left: number; top: number; right: number; bottom: number } =>
+          Boolean(f),
+      )
+    const isDescendantOf = (nodeId: string, frameId: string) => {
+      let parentId = selectedById.get(nodeId)?.parentId
+      while (parentId) {
+        if (parentId === frameId) return true
+        parentId = selectedById.get(parentId)?.parentId
+      }
+      return false
+    }
+    let frameConflictCount = 0
+    let frameConflictArea = 0
+    for (const n of selected) {
+      if (n.type !== 'plcBlock') continue
+      const g = geometry.get(n.id)
+      if (!g) continue
+      for (const f of selectedFrames) {
+        if (isDescendantOf(n.id, f.id)) continue
+        const overlapW = Math.min(g.right, f.right) - Math.max(g.left, f.left)
+        const overlapH = Math.min(g.bottom, f.bottom) - Math.max(g.top, f.top)
+        if (overlapW > 0 && overlapH > 0) {
+          frameConflictCount += 1
+          frameConflictArea += overlapW * overlapH
+        }
+      }
+    }
+
+    const score = layoutObjectiveScore(
+      crossings,
+      wireLength,
+      area,
+      overlapCount,
+      overlapArea,
+      lineBlockIntersectionCount,
+      farPenalty,
+      shortPenalty,
+      lowXPenalty,
+      backwardPenalty,
+      blockProximityPenalty,
+      frameConflictCount,
+      frameConflictArea,
+    )
+    return {
+      score,
+      crossings,
+      wireLength,
+      area,
+      overlapCount,
+      lineBlockIntersectionCount,
+      farPenalty,
+      shortPenalty,
+      lowXPenalty,
+      backwardPenalty,
+      blockProximityPenalty,
+      frameConflictCount,
+    }
+  }, [showLayoutDebug, selectedIds, nodes, edges, getInternalNode])
 
   const makeUndoSnapshot = useCallback(
     (ns: Node<FlowNodeData>[], es: Edge[], sel: Set<string>): UndoSnapshot => ({
@@ -494,8 +665,8 @@ function FlowCanvas() {
           {
             ...params,
             animated: true,
-            style: edgeStyle,
-            markerEnd: edgeArrow,
+              style: defaultFlowEdgeStyle,
+              markerEnd: defaultFlowEdgeArrow,
           },
           eds,
         ),
@@ -617,49 +788,103 @@ function FlowCanvas() {
       }
 
       const def = getBlockDefinition(blockType)
+      let settings = defaultSettingsForBlock(blockType)
+      let initialLabel = def?.label ?? blockType
+      if (blockType === 'SHEET') {
+        const target = projectSheets.find((s) => s.id !== activeSheetId)
+        if (target) {
+          const inferred = inferSheetInterfacePorts(target.nodes)
+          settings = {
+            ...settings,
+            sheetId: target.id,
+            inputsSpec: inferred.inputsJson,
+            outputsSpec: inferred.outputsJson,
+          }
+          initialLabel = target.name
+        }
+      }
       const node: Node<PlcNodeData> = {
         id: makeNodeId(),
         type: 'plcBlock',
         position,
         data: {
           blockType,
-          label: def?.label ?? blockType,
-          settings: defaultSettingsForBlock(blockType),
+          label: initialLabel,
+          settings,
         },
         ...(parentId ? { parentId, extent: 'parent' as const } : {}),
       }
       setNodes((nds) => [...nds, node])
     },
-    [getInternalNode, getNodes, screenToFlowPosition, setNodes],
+    [activeSheetId, getInternalNode, getNodes, projectSheets, screenToFlowPosition, setNodes],
   )
 
   const handleCopyFlowSheet = useCallback(async () => {
     try {
-      const text = serializeFlowSheet(nodes, edges)
+      const mergedSheets = projectSheets.map((sheet) =>
+        sheet.id === activeSheetId
+          ? {
+              ...sheet,
+              nodes,
+              edges,
+            }
+          : sheet,
+      )
+      const text = serializeFlowProject(mergedSheets, activeSheetId)
       await navigator.clipboard.writeText(text)
-      showStatus('Copied full sheet JSON (all blocks & wires) to clipboard.')
+      showStatus(`Copied project JSON (${mergedSheets.length} sheet(s)).`)
     } catch {
-      showStatus('Could not copy sheet — check clipboard permission.')
+      showStatus('Could not copy project — check clipboard permission.')
     }
-  }, [nodes, edges, showStatus])
+  }, [projectSheets, activeSheetId, nodes, edges, showStatus])
 
   const handleLoadFlowSheet = useCallback(() => {
-    const result = parseFlowSheetJson(sheetImportText)
+    const result = parseFlowProjectJson(sheetImportText)
     if (!result.ok) {
-      showStatus(`Sheet JSON: ${result.error}`)
+      showStatus(`Project JSON: ${result.error}`)
       return
     }
-    setNodes(result.nodes)
-    setEdges(result.edges)
+    setProjectSheets(result.sheets)
+    setActiveSheetId(result.activeSheetId)
+    const loaded = result.sheets.find((sheet) => sheet.id === result.activeSheetId) ?? result.sheets[0]
+    isSwitchingSheetRef.current = true
+    setNodes(loaded.nodes)
+    setEdges(loaded.edges)
     setSelectedIds(new Set())
     queueMicrotask(() => {
+      isSwitchingSheetRef.current = false
       fitView({ padding: 0.2 })
     })
     setSettingsModalNodeId(null)
     setSheetImportOpen(false)
     setSheetImportText('')
-    showStatus(`Loaded sheet (${result.nodes.length} nodes, ${result.edges.length} edges).`)
+    showStatus(
+      `Loaded project (${result.sheets.length} sheet(s)); active "${loaded.name}" (${loaded.nodes.length} nodes, ${loaded.edges.length} edges).`,
+    )
   }, [sheetImportText, setNodes, setEdges, setSelectedIds, showStatus, fitView])
+
+  const handleAddSheet = useCallback(() => {
+    const baseName = newSheetName.trim() || `Sheet ${projectSheets.length + 1}`
+    const next = createEmptyProjectSheet(baseName)
+    setProjectSheets((prev) => [...prev, next])
+    setActiveSheetId(next.id)
+    setNewSheetName('')
+    showStatus(`Added sheet "${next.name}".`)
+  }, [newSheetName, projectSheets.length, showStatus])
+
+  const handleDeleteActiveSheet = useCallback(() => {
+    if (projectSheets.length <= 1) {
+      showStatus('Project must keep at least one sheet.')
+      return
+    }
+    const idx = projectSheets.findIndex((s) => s.id === activeSheetId)
+    const removed = projectSheets[idx]
+    const remaining = projectSheets.filter((s) => s.id !== activeSheetId)
+    const fallback = remaining[Math.max(0, idx - 1)] ?? remaining[0]
+    setProjectSheets(remaining)
+    setActiveSheetId(fallback.id)
+    showStatus(`Removed sheet "${removed?.name ?? activeSheetId}".`)
+  }, [projectSheets, activeSheetId, showStatus])
 
   const { onNodeDragStart, onNodeDragStop } = useNodeReparenting({ setNodes, getInternalNode })
 
@@ -678,8 +903,8 @@ function FlowCanvas() {
     },
     undoLastOperation,
     layoutDebug: showLayoutDebug,
-    layoutCompactness,
     showStatus,
+    setLayoutRunning,
     makeNodeId,
   })
 
@@ -723,7 +948,7 @@ function FlowCanvas() {
         selectionOnDrag={false}
         selectNodesOnDrag={false}
         elementsSelectable={false}
-        nodesDraggable={!shiftHeld}
+        nodesDraggable={!shiftHeld && !layoutRunning}
         snapToGrid
         snapGrid={[16, 16]}
         deleteKeyCode={['Backspace', 'Delete']}
@@ -738,8 +963,8 @@ function FlowCanvas() {
         defaultMarkerColor="#38bdf8"
         defaultEdgeOptions={{
           animated: true,
-          style: edgeStyle,
-          markerEnd: edgeArrow,
+          style: defaultFlowEdgeStyle,
+          markerEnd: defaultFlowEdgeArrow,
         }}
       >
         <Background gap={20} size={1} color="rgba(148,163,184,0.15)" />
@@ -760,12 +985,12 @@ function FlowCanvas() {
         />
       </ReactFlow>
       {sheetImportOpen ? (
-        <div className="flow-sheet-import" role="dialog" aria-label="Import sheet JSON">
-          <p className="flow-sheet-import__title">Paste sheet JSON</p>
+        <div className="flow-sheet-import" role="dialog" aria-label="Import project JSON">
+          <p className="flow-sheet-import__title">Paste project JSON</p>
           <textarea
             className="flow-sheet-import__textarea"
             spellCheck={false}
-            placeholder='{ "format": "control-graph-sheet", "version": 1, "nodes": [], "edges": [] }'
+            placeholder='{ "format": "control-graph-project", "version": 1, "activeSheetId": "sheet-main", "sheets": [] }'
             value={sheetImportText}
             onChange={(e) => setSheetImportText(e.target.value)}
           />
@@ -818,8 +1043,46 @@ function FlowCanvas() {
       <footer className="flow-status" role="status">
         {status ? <span className="flow-status__msg">{status}</span> : null}
         <div className="flow-status__io">
+          {layoutRunning ? (
+            <span
+              className="flow-status__layout-running"
+              role="status"
+              aria-live="polite"
+              aria-label={`Layout running, ${(layoutElapsedMs / 1000).toFixed(1)} seconds`}
+            >
+              <span className="flow-status__spinner" aria-hidden />
+              <span className="flow-status__layout-running-text">
+                Layout running… {(layoutElapsedMs / 1000).toFixed(1)}s
+              </span>
+            </span>
+          ) : null}
+          <select
+            className="flow-status__io-btn"
+            value={activeSheet?.id ?? activeSheetId}
+            onChange={(e) => setActiveSheetId(e.target.value)}
+            title="Active sheet"
+          >
+            {projectSheets.map((sheet) => (
+              <option key={sheet.id} value={sheet.id}>
+                {sheet.name}
+              </option>
+            ))}
+          </select>
+          <input
+            className="flow-status__io-btn"
+            value={newSheetName}
+            onChange={(e) => setNewSheetName(e.target.value)}
+            placeholder="New sheet name"
+            aria-label="New sheet name"
+          />
+          <button type="button" className="flow-status__io-btn" onClick={handleAddSheet}>
+            Add sheet
+          </button>
+          <button type="button" className="flow-status__io-btn" onClick={handleDeleteActiveSheet}>
+            Remove sheet
+          </button>
           <button type="button" className="flow-status__io-btn" onClick={() => void handleCopyFlowSheet()}>
-            Copy sheet JSON
+            Copy project JSON
           </button>
           <button
             type="button"
@@ -837,19 +1100,17 @@ function FlowCanvas() {
           >
             {showLayoutDebug ? 'Hide layout dbg' : 'Layout dbg'}
           </button>
-          <button
-            type="button"
-            className="flow-status__io-btn"
-            onClick={() =>
-              setLayoutCompactness((v) => {
-                if (v <= 0.86) return 1
-                if (v <= 1.01) return 1.18
-                return 0.84
-              })
-            }
-          >
-            Layout: {layoutCompactness <= 0.86 ? 'Compact' : layoutCompactness >= 1.1 ? 'Airy' : 'Normal'}
-          </button>
+          {showLayoutDebug && liveLayoutMetrics ? (
+            <span className="flow-status__io-metric">
+              Score {Math.round(liveLayoutMetrics.score)} · X {liveLayoutMetrics.crossings} · W{' '}
+              {Math.round(liveLayoutMetrics.wireLength)} · P {Math.round(liveLayoutMetrics.farPenalty)} · S{' '}
+              {Math.round(liveLayoutMetrics.shortPenalty)} · HX {Math.round(liveLayoutMetrics.lowXPenalty)} · R{' '}
+              {Math.round(liveLayoutMetrics.backwardPenalty)} · BP{' '}
+              {Math.round(liveLayoutMetrics.blockProximityPenalty)} · LB {liveLayoutMetrics.lineBlockIntersectionCount} · O{' '}
+              {liveLayoutMetrics.overlapCount} · F {liveLayoutMetrics.frameConflictCount} · A{' '}
+              {Math.round(liveLayoutMetrics.area)}
+            </span>
+          ) : null}
           <button
             type="button"
             className="flow-status__io-btn"

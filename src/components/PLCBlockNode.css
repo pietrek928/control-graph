@@ -18,6 +18,13 @@
   vertical-align: top;
 }
 
+/* Lift the React Flow node above its siblings while a hover flyout is
+   rendered, so the tooltip is never covered by adjacent nodes (each
+   React Flow node is its own stacking context with an inline z-index). */
+.react-flow__node:has(.plc-node__settings-flyout) {
+  z-index: 1000 !important;
+}
+
 .plc-node__settings-flyout {
   position: absolute;
   left: 50%;

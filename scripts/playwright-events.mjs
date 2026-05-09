@@ -55,7 +55,21 @@ Event schema (array of objects):
   { "type": "press", "key": "Control+j" }
   { "type": "boxNode", "nodeId": "n-add", "mode": "add", "padding": 12 }
   { "type": "wait", "ms": 150 }
-  { "type": "state", "label": "after selection" }`
+  { "type": "state", "label": "after selection" }
+  { "type": "reload" }
+  { "type": "loadSheet", "sheetFile": "scripts/fixtures/all-block-types-sheet.json" }
+  { "type": "rememberNodeCenter", "nodeId": "n-add", "key": "add-start" }
+  { "type": "assertNodeCenterChanged", "nodeId": "n-add", "fromKey": "add-start", "minDistance": 20 }
+  { "type": "assertNodeCenterNear", "nodeId": "n-add", "fromKey": "add-start", "tolerance": 10 }
+  { "type": "rememberNodeCount", "key": "count-before" }
+  { "type": "assertNodeCountDelta", "fromKey": "count-before", "delta": 1 }
+  { "type": "assertNodeExists", "nodeId": "n-not", "exists": true }
+  { "type": "assertStatusIncludes", "text": "Undo applied." }
+  { "type": "rememberLayoutMetric", "key": "m0" }
+  { "type": "rememberBlockOverlapCount", "key": "o0" }
+  { "type": "assertLayoutScoreNotWorse", "fromKey": "m0", "maxIncrease": 0 }
+  { "type": "assertLayoutCrossingsNotWorse", "fromKey": "m0", "maxIncrease": 0 }
+  { "type": "assertBlockOverlapCountNotWorse", "fromKey": "o0", "maxIncrease": 0 }`
 }
 
 function browserTypeFromName(name) {
@@ -97,6 +111,7 @@ async function snapshotState(page, label = '') {
     const debugText = document.querySelector('.flow-selection-debug')?.textContent ?? null
     const box = document.querySelector('.flow-select-box, .flow-unselect-box')
     const statusText = document.querySelector('.flow-status__msg')?.textContent ?? null
+    const layoutMetricText = document.querySelector('.flow-status__io-metric')?.textContent ?? null
     const blockNodes = [...document.querySelectorAll('.react-flow__node.react-flow__node-plcBlock')]
       .map((n) => {
         const id = n.getAttribute('data-id')
@@ -126,6 +141,7 @@ async function snapshotState(page, label = '') {
       selectedNodeCenters,
       selectionBoxVisible: Boolean(box),
       statusText,
+      layoutMetricText,
       debugText,
       blockOverlapPairs,
       blockOverlapCount: blockOverlapPairs.length,
@@ -174,7 +190,76 @@ async function boxAroundNode(page, ev, idx) {
   await page.keyboard.up('Shift')
 }
 
-async function runEvent(page, ev, idx) {
+async function nodeCenterById(page, nodeId, idx, typeName) {
+  if (!nodeId || typeof nodeId !== 'string') {
+    throw new Error(`Event ${idx}: ${typeName} requires "nodeId".`)
+  }
+  const box = await page.locator(`.react-flow__node[data-id="${nodeId}"]`).first().boundingBox()
+  if (!box) throw new Error(`Event ${idx}: node not found: ${nodeId}`)
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+function ensureMemoryKey(ev, idx, keyName = 'key') {
+  const key = ev?.[keyName]
+  if (!key || typeof key !== 'string') {
+    throw new Error(`Event ${idx} requires string "${keyName}".`)
+  }
+  return key
+}
+
+function requireStored(memory, key, idx) {
+  if (!memory.has(key)) {
+    throw new Error(`Event ${idx}: no stored value for key "${key}".`)
+  }
+  return memory.get(key)
+}
+
+function dist(a, b) {
+  const dx = a.x - b.x
+  const dy = a.y - b.y
+  return Math.sqrt(dx * dx + dy * dy)
+}
+
+function parseLayoutMetricText(text) {
+  if (!text || typeof text !== 'string') return null
+  const score = /Score\s+(-?\d+(?:\.\d+)?)/i.exec(text)
+  const crossings = /\bX\s+(-?\d+(?:\.\d+)?)/i.exec(text)
+  const wire = /\bW\s+(-?\d+(?:\.\d+)?)/i.exec(text)
+  const area = /\bA\s+(-?\d+(?:\.\d+)?)/i.exec(text)
+  if (!score || !crossings || !wire || !area) return null
+  return {
+    score: Number(score[1]),
+    crossings: Number(crossings[1]),
+    wire: Number(wire[1]),
+    area: Number(area[1]),
+    raw: text,
+  }
+}
+
+async function blockOverlapCount(page) {
+  return page.evaluate(() => {
+    const blocks = [...document.querySelectorAll('.react-flow__node.react-flow__node-plcBlock')]
+      .map((n) => {
+        const id = n.getAttribute('data-id')
+        const r = n.getBoundingClientRect()
+        return { id, left: r.left, right: r.right, top: r.top, bottom: r.bottom }
+      })
+      .filter((n) => Boolean(n.id))
+    let count = 0
+    for (let i = 0; i < blocks.length; i += 1) {
+      for (let j = i + 1; j < blocks.length; j += 1) {
+        const a = blocks[i]
+        const b = blocks[j]
+        const intersects =
+          a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top
+        if (intersects) count += 1
+      }
+    }
+    return count
+  })
+}
+
+async function runEvent(page, ev, idx, memory) {
   const type = ev?.type
   if (!type || typeof type !== 'string') {
     throw new Error(`Event ${idx} missing string "type".`)
@@ -260,6 +345,256 @@ async function runEvent(page, ev, idx) {
     return
   }
 
+  if (type === 'reload') {
+    await page.reload({ waitUntil: 'networkidle' })
+    return
+  }
+
+  if (type === 'loadSheet') {
+    const sheetText =
+      typeof ev.sheetText === 'string'
+        ? ev.sheetText
+        : typeof ev.sheetFile === 'string'
+          ? await (await import('node:fs/promises')).readFile(ev.sheetFile, 'utf8')
+          : null
+    if (!sheetText) {
+      throw new Error(`Event ${idx}: loadSheet requires "sheetText" or "sheetFile".`)
+    }
+    const importButton = page
+      .locator('button:has-text("Import sheet…"), button:has-text("Close import")')
+      .first()
+    await importButton.click()
+    await page.locator('.flow-sheet-import__textarea').fill(sheetText)
+    await page.locator('button:has-text("Load sheet")').click()
+    await page.waitForTimeout(typeof ev.waitMs === 'number' ? ev.waitMs : 120)
+    return
+  }
+
+  if (type === 'rememberNodeCenter') {
+    const key = ensureMemoryKey(ev, idx, 'key')
+    const center = await nodeCenterById(page, ev.nodeId, idx, 'rememberNodeCenter')
+    memory.set(key, center)
+    console.log(JSON.stringify({ type: 'rememberNodeCenter', key, center }, null, 2))
+    return
+  }
+
+  if (type === 'assertNodeCenterChanged') {
+    const fromKey = ensureMemoryKey(ev, idx, 'fromKey')
+    const prev = requireStored(memory, fromKey, idx)
+    if (!prev || typeof prev.x !== 'number' || typeof prev.y !== 'number') {
+      throw new Error(`Event ${idx}: key "${fromKey}" does not hold a node center.`)
+    }
+    const now = await nodeCenterById(page, ev.nodeId, idx, 'assertNodeCenterChanged')
+    const minDistance = typeof ev.minDistance === 'number' ? ev.minDistance : 14
+    const d = dist(now, prev)
+    if (d < minDistance) {
+      throw new Error(
+        `Event ${idx}: center moved ${d.toFixed(2)}px, expected at least ${minDistance}px.`,
+      )
+    }
+    console.log(
+      JSON.stringify({ type: 'assertNodeCenterChanged', nodeId: ev.nodeId, fromKey, distance: d }, null, 2),
+    )
+    return
+  }
+
+  if (type === 'assertNodeCenterNear') {
+    const fromKey = ensureMemoryKey(ev, idx, 'fromKey')
+    const prev = requireStored(memory, fromKey, idx)
+    if (!prev || typeof prev.x !== 'number' || typeof prev.y !== 'number') {
+      throw new Error(`Event ${idx}: key "${fromKey}" does not hold a node center.`)
+    }
+    const now = await nodeCenterById(page, ev.nodeId, idx, 'assertNodeCenterNear')
+    const tolerance = typeof ev.tolerance === 'number' ? ev.tolerance : 12
+    const d = dist(now, prev)
+    if (d > tolerance) {
+      throw new Error(`Event ${idx}: center drift ${d.toFixed(2)}px exceeds tolerance ${tolerance}px.`)
+    }
+    console.log(
+      JSON.stringify({ type: 'assertNodeCenterNear', nodeId: ev.nodeId, fromKey, distance: d }, null, 2),
+    )
+    return
+  }
+
+  if (type === 'rememberNodeCount') {
+    const key = ensureMemoryKey(ev, idx, 'key')
+    const count = await page
+      .locator('.react-flow__node.react-flow__node-plcBlock, .react-flow__node.react-flow__node-plcFrame')
+      .count()
+    memory.set(key, count)
+    console.log(JSON.stringify({ type: 'rememberNodeCount', key, count }, null, 2))
+    return
+  }
+
+  if (type === 'assertNodeCountDelta') {
+    const fromKey = ensureMemoryKey(ev, idx, 'fromKey')
+    const prev = requireStored(memory, fromKey, idx)
+    if (typeof prev !== 'number') {
+      throw new Error(`Event ${idx}: key "${fromKey}" does not hold a numeric node count.`)
+    }
+    const current = await page
+      .locator('.react-flow__node.react-flow__node-plcBlock, .react-flow__node.react-flow__node-plcFrame')
+      .count()
+    const delta = typeof ev.delta === 'number' ? ev.delta : 0
+    if (current - prev !== delta) {
+      throw new Error(
+        `Event ${idx}: node count delta ${current - prev}, expected ${delta}. (prev=${prev}, current=${current})`,
+      )
+    }
+    console.log(
+      JSON.stringify({ type: 'assertNodeCountDelta', fromKey, prev, current, delta }, null, 2),
+    )
+    return
+  }
+
+  if (type === 'assertNodeExists') {
+    const nodeId = ev.nodeId
+    if (!nodeId || typeof nodeId !== 'string') {
+      throw new Error(`Event ${idx}: assertNodeExists requires "nodeId".`)
+    }
+    const expected = typeof ev.exists === 'boolean' ? ev.exists : true
+    const exists = (await page.locator(`.react-flow__node[data-id="${nodeId}"]`).count()) > 0
+    if (exists !== expected) {
+      throw new Error(`Event ${idx}: node "${nodeId}" exists=${exists}, expected ${expected}.`)
+    }
+    console.log(JSON.stringify({ type: 'assertNodeExists', nodeId, exists }, null, 2))
+    return
+  }
+
+  if (type === 'assertStatusIncludes') {
+    const needle = ev.text
+    if (!needle || typeof needle !== 'string') {
+      throw new Error(`Event ${idx}: assertStatusIncludes requires string "text".`)
+    }
+    const status = (await page.locator('.flow-status__msg').textContent()) ?? ''
+    if (!status.includes(needle)) {
+      throw new Error(`Event ${idx}: status "${status}" does not include "${needle}".`)
+    }
+    console.log(JSON.stringify({ type: 'assertStatusIncludes', expected: needle, status }, null, 2))
+    return
+  }
+
+  if (type === 'rememberLayoutMetric') {
+    const key = ensureMemoryKey(ev, idx, 'key')
+    const text = (await page.locator('.flow-status__io-metric').textContent()) ?? ''
+    const metric = parseLayoutMetricText(text)
+    if (!metric) {
+      throw new Error(`Event ${idx}: could not parse layout metric from "${text}".`)
+    }
+    memory.set(key, metric)
+    console.log(JSON.stringify({ type: 'rememberLayoutMetric', key, metric }, null, 2))
+    return
+  }
+
+  if (type === 'rememberBlockOverlapCount') {
+    const key = ensureMemoryKey(ev, idx, 'key')
+    const count = await blockOverlapCount(page)
+    memory.set(key, count)
+    console.log(JSON.stringify({ type: 'rememberBlockOverlapCount', key, count }, null, 2))
+    return
+  }
+
+  if (type === 'assertLayoutScoreNotWorse') {
+    const fromKey = ensureMemoryKey(ev, idx, 'fromKey')
+    const prev = requireStored(memory, fromKey, idx)
+    if (!prev || typeof prev.score !== 'number') {
+      throw new Error(`Event ${idx}: key "${fromKey}" does not hold a layout metric.`)
+    }
+    const currentText = (await page.locator('.flow-status__io-metric').textContent()) ?? ''
+    const current = parseLayoutMetricText(currentText)
+    if (!current) {
+      throw new Error(`Event ${idx}: could not parse current layout metric from "${currentText}".`)
+    }
+    const maxIncrease = typeof ev.maxIncrease === 'number' ? ev.maxIncrease : 0
+    if (current.score > prev.score + maxIncrease) {
+      throw new Error(
+        `Event ${idx}: layout score regressed from ${prev.score} to ${current.score} (allowed +${maxIncrease}).`,
+      )
+    }
+    console.log(
+      JSON.stringify(
+        {
+          type: 'assertLayoutScoreNotWorse',
+          fromKey,
+          previous: prev.score,
+          current: current.score,
+          maxIncrease,
+        },
+        null,
+        2,
+      ),
+    )
+    return
+  }
+
+  if (type === 'assertLayoutCrossingsNotWorse') {
+    const fromKey = ensureMemoryKey(ev, idx, 'fromKey')
+    const prev = requireStored(memory, fromKey, idx)
+    if (!prev || typeof prev.crossings !== 'number') {
+      throw new Error(`Event ${idx}: key "${fromKey}" does not hold a layout metric.`)
+    }
+    const currentText = (await page.locator('.flow-status__io-metric').textContent()) ?? ''
+    const current = parseLayoutMetricText(currentText)
+    if (!current) {
+      throw new Error(`Event ${idx}: could not parse current layout metric from "${currentText}".`)
+    }
+    const maxIncrease = typeof ev.maxIncrease === 'number' ? ev.maxIncrease : 0
+    if (current.crossings > prev.crossings + maxIncrease) {
+      throw new Error(
+        `Event ${idx}: crossing count regressed from ${prev.crossings} to ${current.crossings} (allowed +${maxIncrease}).`,
+      )
+    }
+    console.log(
+      JSON.stringify(
+        {
+          type: 'assertLayoutCrossingsNotWorse',
+          fromKey,
+          previous: prev.crossings,
+          current: current.crossings,
+          maxIncrease,
+        },
+        null,
+        2,
+      ),
+    )
+    return
+  }
+
+  if (type === 'assertBlockOverlapCountNotWorse') {
+    const fromKey = ensureMemoryKey(ev, idx, 'fromKey')
+    const prev = requireStored(memory, fromKey, idx)
+    if (typeof prev !== 'number') {
+      throw new Error(`Event ${idx}: key "${fromKey}" does not hold block overlap count.`)
+    }
+    const current = await blockOverlapCount(page)
+    const maxIncrease = typeof ev.maxIncrease === 'number' ? ev.maxIncrease : 0
+    if (current > prev + maxIncrease) {
+      throw new Error(
+        `Event ${idx}: block overlap count regressed from ${prev} to ${current} (allowed +${maxIncrease}).`,
+      )
+    }
+    console.log(
+      JSON.stringify(
+        {
+          type: 'assertBlockOverlapCountNotWorse',
+          fromKey,
+          previous: prev,
+          current,
+          maxIncrease,
+        },
+        null,
+        2,
+      ),
+    )
+    return
+  }
+
+  if (type === 'clearMemory') {
+    memory.clear()
+    console.log(JSON.stringify({ type: 'clearMemory' }, null, 2))
+    return
+  }
+
   throw new Error(`Unsupported event type "${type}" at index ${idx}.`)
 }
 
@@ -271,6 +606,7 @@ async function main() {
   }
 
   const events = await loadEvents(args)
+  const memory = new Map()
   const browserType = browserTypeFromName(args.browser)
   const browser = await browserType.launch({ headless: args.headless })
 
@@ -281,7 +617,7 @@ async function main() {
     await page.goto(args.url, { waitUntil: 'networkidle' })
 
     for (let i = 0; i < events.length; i += 1) {
-      await runEvent(page, events[i], i)
+      await runEvent(page, events[i], i, memory)
     }
 
     await snapshotState(page, 'final')

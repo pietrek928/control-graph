@@ -188,6 +188,32 @@ bool out0 = in0 && in1;
     outputs: [{ id: 'out0', label: 'OUT0', type: 'BOOL' }],
   },
   {
+    type: 'SHEET',
+    label: 'SHEET',
+    category: 'Structure',
+    description: 'Reference another sheet through typed inputs/outputs.',
+    symbolHint: 'SHEET — calls another sheet via exposed IO',
+    settingsFields: [
+      { key: 'sheetId', label: 'Target sheet ID', type: 'text', default: '' },
+      {
+        key: 'inputsSpec',
+        label: 'Inputs (JSON)',
+        type: 'textarea',
+        rows: 5,
+        default: '[{"id":"in0","label":"IN0","type":"BOOL"}]',
+      },
+      {
+        key: 'outputsSpec',
+        label: 'Outputs (JSON)',
+        type: 'textarea',
+        rows: 5,
+        default: '[{"id":"out0","label":"OUT0","type":"BOOL"}]',
+      },
+    ],
+    inputs: [{ id: 'in0', label: 'IN0', type: 'BOOL' }],
+    outputs: [{ id: 'out0', label: 'OUT0', type: 'BOOL' }],
+  },
+  {
     type: 'FRAME',
     label: 'Frame',
     category: 'Structure',

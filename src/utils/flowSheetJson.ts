@@ -7,12 +7,33 @@ import type { FrameNodeData } from '../types/frame'
 
 export const FLOW_SHEET_FORMAT = 'control-graph-sheet' as const
 export const FLOW_SHEET_VERSION = 1
+export const FLOW_PROJECT_FORMAT = 'control-graph-project' as const
+export const FLOW_PROJECT_VERSION = 1
 
 export type FlowSheetDocument = {
   format: typeof FLOW_SHEET_FORMAT
   version: number
   nodes: Record<string, unknown>[]
   edges: Record<string, unknown>[]
+}
+
+export type FlowProjectSheet = {
+  id: string
+  name: string
+  nodes: Node<FlowNodeData>[]
+  edges: Edge[]
+}
+
+export type FlowProjectDocument = {
+  format: typeof FLOW_PROJECT_FORMAT
+  version: number
+  activeSheetId?: string
+  sheets: Array<{
+    id: string
+    name: string
+    nodes: Record<string, unknown>[]
+    edges: Record<string, unknown>[]
+  }>
 }
 
 const DEFAULT_EDGE_MARKER = {
@@ -63,6 +84,21 @@ export function serializeFlowSheet(nodes: Node<FlowNodeData>[], edges: Edge[]): 
     version: FLOW_SHEET_VERSION,
     nodes: nodes.map(slimNode),
     edges: edges.map(slimEdge),
+  }
+  return JSON.stringify(doc, null, 2)
+}
+
+export function serializeFlowProject(sheets: FlowProjectSheet[], activeSheetId?: string): string {
+  const doc: FlowProjectDocument = {
+    format: FLOW_PROJECT_FORMAT,
+    version: FLOW_PROJECT_VERSION,
+    activeSheetId,
+    sheets: sheets.map((s) => ({
+      id: s.id,
+      name: s.name,
+      nodes: s.nodes.map(slimNode),
+      edges: s.edges.map(slimEdge),
+    })),
   }
   return JSON.stringify(doc, null, 2)
 }
@@ -225,4 +261,69 @@ export function parseFlowSheetJson(
   }
 
   return { ok: true, nodes: sorted, edges }
+}
+
+export function parseFlowProjectJson(
+  text: string,
+):
+  | { ok: true; sheets: FlowProjectSheet[]; activeSheetId: string }
+  | { ok: false; error: string } {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(text)
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Invalid JSON' }
+  }
+  if (!parsed || typeof parsed !== 'object') {
+    return { ok: false, error: 'Root must be a JSON object.' }
+  }
+  const root = parsed as Record<string, unknown>
+
+  if (root.format === FLOW_PROJECT_FORMAT && root.version === FLOW_PROJECT_VERSION) {
+    if (!Array.isArray(root.sheets) || root.sheets.length === 0) {
+      return { ok: false, error: 'Project must include non-empty sheets array.' }
+    }
+    const sheets: FlowProjectSheet[] = []
+    const seenSheetIds = new Set<string>()
+    for (const item of root.sheets) {
+      if (!item || typeof item !== 'object') continue
+      const s = item as Record<string, unknown>
+      if (typeof s.id !== 'string' || !s.id || seenSheetIds.has(s.id)) continue
+      const name = typeof s.name === 'string' && s.name.trim() ? s.name : s.id
+      const nodesRaw = Array.isArray(s.nodes) ? s.nodes : []
+      const edgesRaw = Array.isArray(s.edges) ? s.edges : []
+      const sheetDoc = JSON.stringify({
+        format: FLOW_SHEET_FORMAT,
+        version: FLOW_SHEET_VERSION,
+        nodes: nodesRaw,
+        edges: edgesRaw,
+      })
+      const parsedSheet = parseFlowSheetJson(sheetDoc)
+      if (!parsedSheet.ok) continue
+      sheets.push({
+        id: s.id,
+        name,
+        nodes: parsedSheet.nodes,
+        edges: parsedSheet.edges,
+      })
+      seenSheetIds.add(s.id)
+    }
+    if (!sheets.length) {
+      return { ok: false, error: 'Project has no valid sheets.' }
+    }
+    const activeSheetId =
+      typeof root.activeSheetId === 'string' && sheets.some((s) => s.id === root.activeSheetId)
+        ? root.activeSheetId
+        : sheets[0].id
+    return { ok: true, sheets, activeSheetId }
+  }
+
+  const single = parseFlowSheetJson(text)
+  if (!single.ok) return single
+  const sheetId = 'sheet-main'
+  return {
+    ok: true,
+    sheets: [{ id: sheetId, name: 'Main', nodes: single.nodes, edges: single.edges }],
+    activeSheetId: sheetId,
+  }
 }

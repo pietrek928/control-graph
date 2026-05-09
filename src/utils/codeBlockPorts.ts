@@ -109,12 +109,16 @@ export function getEffectiveBlockPorts(
 ): { inputs: PortDefinition[]; outputs: PortDefinition[] } {
   const def = getBlockDefinition(blockType)
   if (!def) return { inputs: [], outputs: [] }
-  if (blockType !== 'CODE') return { inputs: def.inputs, outputs: def.outputs }
+  if (!usesPortSpecSettings(blockType)) return { inputs: def.inputs, outputs: def.outputs }
   const merged = mergeSettings(def, settings)
   return {
     inputs: parsePortArray(String(merged.inputsSpec ?? ''), def.inputs),
     outputs: parsePortArray(String(merged.outputsSpec ?? ''), def.outputs),
   }
+}
+
+export function usesPortSpecSettings(blockType: string): boolean {
+  return blockType === 'CODE' || blockType === 'SHEET'
 }
 
 /** Compact lines for `fullHoverHint` / plain-text summaries (no raw JSON blobs). */
@@ -151,6 +155,42 @@ export function formatCodeBlockSettingsSummaryLines(
     `  JSON: ${jsonStatus(outA)}`,
     `C++ body: ${lineCount} line(s)`,
   ]
+}
+
+export function formatPortSpecBlockSettingsSummaryLines(
+  blockType: string,
+  def: BlockDefinition,
+  settings: SettingsRecord,
+): string[] {
+  const merged = mergeSettings(def, settings)
+  const { inputs, outputs } = getEffectiveBlockPorts(blockType, merged)
+  const inRaw = String(merged.inputsSpec ?? '')
+  const outRaw = String(merged.outputsSpec ?? '')
+  const inA = analyzePortSpecJson(inRaw)
+  const outA = analyzePortSpecJson(outRaw)
+
+  const portLine = (ports: PortDefinition[]) =>
+    ports.length ? ports.map((p) => `${p.id}·${p.type}`).join(', ') : 'defaults'
+
+  const jsonStatus = (a: PortSpecJsonAnalysis) => {
+    if (!a.syntaxOk) return a.syntaxError ?? 'Invalid'
+    if (!a.isArray) return 'root must be a JSON array'
+    const bits = [`${a.validPorts.length} port(s)`]
+    if (a.skippedEntries) bits.push(`${a.skippedEntries} skipped`)
+    return bits.join(', ')
+  }
+
+  const lines = [
+    `Inputs (canvas): ${portLine(inputs)}`,
+    `  JSON: ${jsonStatus(inA)}`,
+    `Outputs (canvas): ${portLine(outputs)}`,
+    `  JSON: ${jsonStatus(outA)}`,
+  ]
+
+  if (blockType === 'SHEET') {
+    lines.unshift(`Target sheet: ${String(merged.sheetId ?? '') || '(unset)'}`)
+  }
+  return lines
 }
 
 export type PortSpecLiveStatus = {

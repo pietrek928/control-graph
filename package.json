@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "pw:events": "node scripts/playwright-events.mjs"
+    "pw:events": "node scripts/playwright-events.mjs",
+    "pw:layout:all-types": "node scripts/playwright-events.mjs --events-file scripts/events/layout-benchmark-all-block-types.json",
+    "pw:layout:suite": "node scripts/layout-benchmark-suite.mjs"
   },
   "dependencies": {
     "@xyflow/react": "^12.10.2",

@@ -1,0 +1,98 @@
+[
+  { "type": "focus", "selector": ".flow-wrap" },
+
+  { "type": "reload" },
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "rememberNodeCenter", "nodeId": "n-add", "key": "move:start" },
+  {
+    "type": "down",
+    "selector": ".react-flow__node[data-id=\"n-add\"]",
+    "button": "left"
+  },
+  { "type": "move", "x": 670, "y": 540, "steps": 18 },
+  { "type": "up", "button": "left" },
+  {
+    "type": "assertNodeCenterChanged",
+    "nodeId": "n-add",
+    "fromKey": "move:start",
+    "minDistance": 18
+  },
+  { "type": "press", "key": "Control+z" },
+  {
+    "type": "assertNodeCenterNear",
+    "nodeId": "n-add",
+    "fromKey": "move:start",
+    "tolerance": 12
+  },
+  { "type": "assertStatusIncludes", "text": "Undo applied." },
+
+  { "type": "reload" },
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "assertNodeExists", "nodeId": "n-not", "exists": true },
+  { "type": "click", "selector": ".react-flow__node[data-id=\"n-not\"]" },
+  { "type": "press", "key": "Delete" },
+  { "type": "assertNodeExists", "nodeId": "n-not", "exists": false },
+  { "type": "press", "key": "Control+z" },
+  { "type": "assertNodeExists", "nodeId": "n-not", "exists": true },
+
+  { "type": "reload" },
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "rememberNodeCount", "key": "paste:before" },
+  { "type": "click", "selector": ".react-flow__node[data-id=\"n-ctu\"]" },
+  { "type": "press", "key": "Control+c" },
+  { "type": "press", "key": "Control+v" },
+  { "type": "assertNodeCountDelta", "fromKey": "paste:before", "delta": 1 },
+  { "type": "press", "key": "Control+z" },
+  { "type": "assertNodeCountDelta", "fromKey": "paste:before", "delta": 0 },
+
+  { "type": "reload" },
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "rememberNodeCenter", "nodeId": "n-gt", "key": "typing:beforeMove" },
+  {
+    "type": "down",
+    "selector": ".react-flow__node[data-id=\"n-gt\"]",
+    "button": "left"
+  },
+  { "type": "move", "x": 820, "y": 620, "steps": 18 },
+  { "type": "up", "button": "left" },
+  { "type": "rememberNodeCenter", "nodeId": "n-gt", "key": "typing:afterMove" },
+  {
+    "type": "assertNodeCenterChanged",
+    "nodeId": "n-gt",
+    "fromKey": "typing:beforeMove",
+    "minDistance": 18
+  },
+  {
+    "type": "click",
+    "selector": ".react-flow__node[data-id=\"n-code\"]",
+    "clickCount": 2
+  },
+  {
+    "type": "click",
+    "selector": ".settings-modal input[type=\"text\"], .settings-modal input[type=\"number\"]"
+  },
+  { "type": "type", "text": "123" },
+  { "type": "press", "key": "Control+z" },
+  {
+    "type": "assertNodeCenterNear",
+    "nodeId": "n-gt",
+    "fromKey": "typing:afterMove",
+    "tolerance": 12
+  },
+  { "type": "click", "selector": ".settings-modal__close" },
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "press", "key": "Control+z" },
+  {
+    "type": "assertNodeCenterNear",
+    "nodeId": "n-gt",
+    "fromKey": "typing:beforeMove",
+    "tolerance": 12
+  },
+
+  { "type": "reload" },
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "press", "key": "Control+z" },
+  { "type": "assertStatusIncludes", "text": "Nothing to undo." },
+
+  { "type": "state", "label": "ctrl-z-validation-final" }
+]

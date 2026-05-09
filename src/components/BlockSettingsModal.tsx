@@ -2,7 +2,11 @@ import type { Node, XYPosition } from '@xyflow/react'
 import { useInternalNode, useReactFlow, useStore } from '@xyflow/react'
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
 import { getBlockDefinition } from '../data/blockDefinitions'
-import { analyzePortSpecJson, portSpecLiveStatus } from '../utils/codeBlockPorts'
+import {
+  analyzePortSpecJson,
+  portSpecLiveStatus,
+  usesPortSpecSettings,
+} from '../utils/codeBlockPorts'
 import { type SettingsRecord, mergeSettings } from '../utils/blockSettings'
 import type { FlowNodeData } from '../utils/connectionValidation'
 import type { PlcNodeData } from './PLCBlockNode'
@@ -219,7 +223,7 @@ export function BlockSettingsModal({ nodeId, nodes, onClose, onApply }: Props) {
         <form className="settings-modal__form" onSubmit={handleSubmit}>
           {fields.map((field) => {
             const isCodeJsonPortSpec =
-              plc?.blockType === 'CODE' &&
+              usesPortSpecSettings(plc?.blockType ?? '') &&
               field.type === 'textarea' &&
               (field.key === 'inputsSpec' || field.key === 'outputsSpec')
 

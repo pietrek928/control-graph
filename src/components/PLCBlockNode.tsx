@@ -4,6 +4,7 @@ import { getBlockDefinition } from '../data/blockDefinitions'
 import {
   getEffectiveBlockPorts,
   portSpecLiveStatus,
+  usesPortSpecSettings,
 } from '../utils/codeBlockPorts'
 import { mergeSettings, type SettingsRecord } from '../utils/blockSettings'
 import { resolvePortHint, resolveSymbolHint } from '../utils/portHints'
@@ -22,12 +23,43 @@ function formatPortChips(ports: PortDefinition[]): string {
   return ports.map((p) => `${p.id} ${p.type}`).join(' · ')
 }
 
-function CodeBlockHoverFlyout({
+function PortSpecSection({
+  title,
+  effectivePorts,
+  rawKey,
+  raw,
+}: {
+  title: string
+  effectivePorts: PortDefinition[]
+  rawKey: string
+  raw: string
+}) {
+  const live = useMemo(() => portSpecLiveStatus(raw), [raw])
+  return (
+    <div className="plc-code-flyout__block">
+      <div className="plc-code-flyout__head">
+        <span className="plc-code-flyout__title">{title}</span>
+        <span className="plc-code-flyout__muted">{formatPortChips(effectivePorts)}</span>
+      </div>
+      <div className="plc-code-flyout__sub">
+        <span className="plc-code-flyout__kbd">{rawKey}</span>
+        <span className={`plc-code-flyout__pill plc-code-flyout__pill--${live.tone}`}>
+          {live.headline}
+        </span>
+      </div>
+      {live.detail ? <p className="plc-code-flyout__detail">{live.detail}</p> : null}
+    </div>
+  )
+}
+
+function PortSpecBlockHoverFlyout({
+  blockType,
   symbolHint,
   mergedSettings,
   effectiveIn,
   effectiveOut,
 }: {
+  blockType: string
   symbolHint: string
   mergedSettings: SettingsRecord
   effectiveIn: PortDefinition[]
@@ -35,61 +67,59 @@ function CodeBlockHoverFlyout({
 }) {
   const inRaw = String(mergedSettings.inputsSpec ?? '')
   const outRaw = String(mergedSettings.outputsSpec ?? '')
-  const codeRaw = String(mergedSettings.code ?? '')
-
-  const inLive = useMemo(() => portSpecLiveStatus(inRaw), [inRaw])
-  const outLive = useMemo(() => portSpecLiveStatus(outRaw), [outRaw])
-
-  const codeLines = codeRaw.split(/\r?\n/)
-  const codePreview = codeLines.slice(0, 8).join('\n')
-  const codeMore = codeLines.length > 8
 
   return (
     <div className="plc-node__settings-flyout plc-node__settings-flyout--code" role="tooltip">
       <p className="plc-node__settings-flyout-hint">{symbolHint}</p>
 
-      <div className="plc-code-flyout__block">
-        <div className="plc-code-flyout__head">
-          <span className="plc-code-flyout__title">Inputs (canvas)</span>
-          <span className="plc-code-flyout__muted">{formatPortChips(effectiveIn)}</span>
+      {blockType === 'SHEET' ? (
+        <div className="plc-code-flyout__block">
+          <div className="plc-code-flyout__head">
+            <span className="plc-code-flyout__title">Target sheet</span>
+            <span className="plc-code-flyout__muted">
+              {String(mergedSettings.sheetId ?? '') || '(unset)'}
+            </span>
+          </div>
         </div>
-        <div className="plc-code-flyout__sub">
-          <span className="plc-code-flyout__kbd">inputsSpec</span>
-          <span className={`plc-code-flyout__pill plc-code-flyout__pill--${inLive.tone}`}>
-            {inLive.headline}
-          </span>
-        </div>
-        {inLive.detail ? <p className="plc-code-flyout__detail">{inLive.detail}</p> : null}
-      </div>
+      ) : null}
 
-      <div className="plc-code-flyout__block">
-        <div className="plc-code-flyout__head">
-          <span className="plc-code-flyout__title">Outputs (canvas)</span>
-          <span className="plc-code-flyout__muted">{formatPortChips(effectiveOut)}</span>
-        </div>
-        <div className="plc-code-flyout__sub">
-          <span className="plc-code-flyout__kbd">outputsSpec</span>
-          <span className={`plc-code-flyout__pill plc-code-flyout__pill--${outLive.tone}`}>
-            {outLive.headline}
-          </span>
-        </div>
-        {outLive.detail ? <p className="plc-code-flyout__detail">{outLive.detail}</p> : null}
-      </div>
+      <PortSpecSection
+        title="Inputs (canvas)"
+        effectivePorts={effectiveIn}
+        rawKey="inputsSpec"
+        raw={inRaw}
+      />
+      <PortSpecSection
+        title="Outputs (canvas)"
+        effectivePorts={effectiveOut}
+        rawKey="outputsSpec"
+        raw={outRaw}
+      />
 
-      <div className="plc-code-flyout__block">
-        <div className="plc-code-flyout__head">
-          <span className="plc-code-flyout__title">C++ body</span>
-          <span className="plc-code-flyout__muted">
-            {codeLines.length ? `${codeLines.length} line(s)` : 'empty'}
-          </span>
-        </div>
-        {codePreview ? (
-          <pre className="plc-node__code-cpp-pre" tabIndex={-1}>
-            {codePreview}
-            {codeMore ? '\n…' : ''}
-          </pre>
-        ) : null}
+      {blockType === 'CODE' ? <CodeBodyFlyoutSection mergedSettings={mergedSettings} /> : null}
+    </div>
+  )
+}
+
+function CodeBodyFlyoutSection({ mergedSettings }: { mergedSettings: SettingsRecord }) {
+  const codeRaw = String(mergedSettings.code ?? '')
+  const codeLines = codeRaw.split(/\r?\n/)
+  const codePreview = codeLines.slice(0, 8).join('\n')
+  const codeMore = codeLines.length > 8
+  return (
+    <div className="plc-code-flyout__block">
+      <div className="plc-code-flyout__head">
+        <span className="plc-code-flyout__title">C++ body</span>
+        <span className="plc-code-flyout__muted">
+          {codeLines.length ? `${codeLines.length} line(s)` : 'empty'}
+        </span>
       </div>
+      {codePreview ? (
+        <pre className="plc-node__code-cpp-pre" tabIndex={-1}>
+          {codePreview}
+          {codeMore ? '\n…' : ''}
+        </pre>
+      ) : null}
     </div>
   )
 }
@@ -127,12 +157,13 @@ function PLCBlockNodeInner(props: NodeProps<Node<PlcNodeData, 'plcBlock'>>) {
           className="plc-node__graphic"
           title={def.settingsFields?.length ? undefined : resolveSymbolHint(def)}
         >
-          <BlockPreview blockType={data.blockType} variant="node" />
+          <BlockPreview blockType={data.blockType} variant="node" label={data.label} />
         </div>
 
         {hover && !dragging && def.settingsFields?.length ? (
-          data.blockType === 'CODE' ? (
-            <CodeBlockHoverFlyout
+          usesPortSpecSettings(data.blockType) ? (
+            <PortSpecBlockHoverFlyout
+              blockType={data.blockType}
               symbolHint={symbolOnlyHint}
               mergedSettings={mergedSettings}
               effectiveIn={portIn}

@@ -1,6 +1,9 @@
 import type { BlockDefinition } from '../types/plc'
 import { getBlockDefinition } from '../data/blockDefinitions'
-import { formatCodeBlockSettingsSummaryLines } from './codeBlockPorts'
+import {
+  formatCodeBlockSettingsSummaryLines,
+  formatPortSpecBlockSettingsSummaryLines,
+} from './codeBlockPorts'
 import { resolveSymbolHint } from './portHints'
 
 export type SettingsRecord = Record<string, string | number | boolean>
@@ -32,6 +35,9 @@ export function formatSettingsSummary(def: BlockDefinition, settings: SettingsRe
   if (!def.settingsFields?.length) return []
   if (def.type === 'CODE') {
     return formatCodeBlockSettingsSummaryLines(def, settings)
+  }
+  if (def.type === 'SHEET') {
+    return formatPortSpecBlockSettingsSummaryLines(def.type, def, settings)
   }
   return def.settingsFields.map((f) => {
     const v = settings[f.key] ?? f.default

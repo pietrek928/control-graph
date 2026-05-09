@@ -1,0 +1,43 @@
+[
+  { "type": "reload" },
+  { "type": "focus", "selector": ".flow-wrap" },
+  { "type": "click", "selector": "text=Layout dbg" },
+
+  { "type": "press", "key": "Control+a" },
+  { "type": "wait", "ms": 90 },
+  { "type": "rememberLayoutMetric", "key": "baseline" },
+  { "type": "state", "label": "benchmark:baseline" },
+
+  { "type": "press", "key": "Control+j" },
+  { "type": "wait", "ms": 140 },
+  { "type": "rememberLayoutMetric", "key": "pass1" },
+  { "type": "assertLayoutScoreNotWorse", "fromKey": "baseline", "maxIncrease": 0 },
+  { "type": "assertLayoutCrossingsNotWorse", "fromKey": "baseline", "maxIncrease": 0 },
+
+  { "type": "press", "key": "Control+j" },
+  { "type": "wait", "ms": 140 },
+  { "type": "rememberLayoutMetric", "key": "pass2" },
+  { "type": "assertLayoutScoreNotWorse", "fromKey": "pass1", "maxIncrease": 12 },
+  { "type": "assertLayoutCrossingsNotWorse", "fromKey": "pass1", "maxIncrease": 0 },
+
+  { "type": "click", "selector": ".react-flow__pane" },
+  { "type": "down", "selector": ".react-flow__node[data-id=\"n-add\"]", "button": "left" },
+  { "type": "move", "x": 760, "y": 430, "steps": 20 },
+  { "type": "up", "button": "left" },
+  { "type": "down", "selector": ".react-flow__node[data-id=\"n-ctu\"]", "button": "left" },
+  { "type": "move", "x": 820, "y": 450, "steps": 20 },
+  { "type": "up", "button": "left" },
+
+  { "type": "press", "key": "Control+a" },
+  { "type": "wait", "ms": 90 },
+  { "type": "rememberLayoutMetric", "key": "perturbed" },
+  { "type": "state", "label": "benchmark:perturbed" },
+
+  { "type": "press", "key": "Control+j" },
+  { "type": "wait", "ms": 160 },
+  { "type": "rememberLayoutMetric", "key": "recovered" },
+  { "type": "assertLayoutScoreNotWorse", "fromKey": "perturbed", "maxIncrease": 0 },
+  { "type": "assertLayoutCrossingsNotWorse", "fromKey": "perturbed", "maxIncrease": 0 },
+
+  { "type": "state", "label": "benchmark:final" }
+]
